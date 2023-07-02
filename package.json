@@ -1,7 +1,7 @@
 {
-  "name": "react-boilerplate",
+  "name": "email-sync",
   "version": "1.0.0",
-  "description": "React Boilerplate App",
+  "description": "Email Sync App",
   "main": "index.js",
   "scripts": {
     "build-prod": "webpack --env isProd=true",

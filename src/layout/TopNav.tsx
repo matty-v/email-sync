@@ -19,7 +19,7 @@ export function TopNav() {
             onClick={() => navigate('/')}
           />
           <Typography variant="h6" component="div" className="clickable" onClick={() => navigate('/')}>
-            React Boilerplate
+            Email Sync Tester
           </Typography>
         </Toolbar>
       </AppBar>
