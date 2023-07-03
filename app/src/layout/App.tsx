@@ -1,4 +1,5 @@
 import { createTheme, ThemeProvider } from '@mui/material';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import Notification from '../common/Notification';
 import { Main } from './Main';
@@ -27,19 +28,21 @@ export function App() {
 
   return (
     <ThemeProvider theme={theme}>
-      <Router>
-        <TopNav />
-        <main className="mdc-top-app-bar--fixed-adjust">
-          <div className="App">
-            <div className="container">
-              <Routes>
-                <Route path="/" element={<Main />} />
-              </Routes>
+      <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID ?? ''}>
+        <Router>
+          <TopNav />
+          <main className="mdc-top-app-bar--fixed-adjust">
+            <div className="App">
+              <div className="container">
+                <Routes>
+                  <Route path="/" element={<Main />} />
+                </Routes>
+              </div>
             </div>
-          </div>
-        </main>
-        <Notification />
-      </Router>
+          </main>
+          <Notification />
+        </Router>
+      </GoogleOAuthProvider>
     </ThemeProvider>
   );
 }

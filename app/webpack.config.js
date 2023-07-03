@@ -2,6 +2,7 @@ const path = require('path');
 const webpack = require('webpack');
 const HtmlWebPackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+require('dotenv').config({ path: './.env' });
 
 module.exports = ({ isProd }) => {
   return {
@@ -54,6 +55,9 @@ module.exports = ({ isProd }) => {
       }),
       new webpack.ProvidePlugin({
         Buffer: [require.resolve('buffer/'), 'Buffer'],
+      }),
+      new webpack.DefinePlugin({
+        'process.env': JSON.stringify(process.env),
       }),
     ],
   };
