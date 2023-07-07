@@ -3,6 +3,7 @@ import { filter, map, Observable, Subject } from 'rxjs';
 export enum Events {
   'Notify',
   'UpdateLoader',
+  'Login',
 }
 
 type BroadcastEvent = {

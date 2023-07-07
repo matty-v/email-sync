@@ -1,12 +1,12 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { Login } from '../common/Login';
+import { EmailList } from '../components/EmailList';
 
 export function Main() {
   return (
     <Box>
-      <Typography variant="h1">Hello World!</Typography>
-      <Login />
+      <Typography variant="h2">Emails</Typography>
+      <EmailList />
     </Box>
   );
 }
