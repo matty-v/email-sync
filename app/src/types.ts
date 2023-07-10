@@ -32,7 +32,6 @@ export type Email = {
   historyId: string;
   internalDate: number;
   attachments: EmailAttachment[];
-  inline: EmailAttachment[];
   headers: {
     subject: string;
     from: string;
@@ -41,4 +40,5 @@ export type Email = {
   };
   textPlain: string;
   textHtml: string;
+  textMarkdown: string;
 };

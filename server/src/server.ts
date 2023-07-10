@@ -1,11 +1,17 @@
 import cors from 'cors';
 import express, { Request, RequestHandler, Response } from 'express';
 import morgan from 'morgan';
+import { env, loadEnv } from './env';
+import { initGmailClient } from './gmail-client';
+import { initNotionClient } from './notion-client';
 import routes from './routes';
-require('dotenv').config();
+
+loadEnv();
+
+initGmailClient();
+initNotionClient();
 
 const app = express();
-const PORT = process.env.PORT;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -18,6 +24,6 @@ app.get('/', (async (_: Request, res: Response) => {
 
 app.use(routes);
 
-app.listen(PORT, () => {
-  console.log(`email sync server is listening on port ${PORT}...`);
+app.listen(env.PORT, () => {
+  console.log(`email sync server is listening on port ${env.PORT}...`);
 });

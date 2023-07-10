@@ -16,11 +16,9 @@ export function TopNav() {
 
   useGoogleOneTapLogin({
     onSuccess: credentialResponse => {
-      console.log(credentialResponse);
       if (credentialResponse?.credential) {
         localStorage.setItem(GOOGLE_JWT_KEY, credentialResponse.credential);
         const decoded: any = jwt_decode(credentialResponse.credential ?? '');
-        console.log(decoded);
         setName(decoded.name);
         broadcast(Events.Login, true);
       }

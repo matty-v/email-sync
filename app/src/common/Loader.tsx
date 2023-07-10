@@ -1,3 +1,4 @@
+import { Backdrop } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useEffect, useState } from 'react';
 import { LoaderPayload } from '../types';
@@ -12,7 +13,6 @@ export default function Loader() {
 
   useEffect(() => {
     on<LoaderPayload>(Events.UpdateLoader).subscribe(payload => {
-      console.log(payload);
       setEnabled(payload.Enabled);
       if (payload.Progress) {
         setProgress(payload.Progress);
@@ -21,5 +21,9 @@ export default function Loader() {
     });
   }, []);
 
-  return <CircularProgress hidden={!enabled} variant={type} value={progress} />;
+  return (
+    <Backdrop sx={{ color: '#fff', zIndex: 999 }} open={enabled}>
+      <CircularProgress variant={type} value={progress} color="inherit" />
+    </Backdrop>
+  );
 }

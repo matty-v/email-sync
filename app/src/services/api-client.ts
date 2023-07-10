@@ -11,8 +11,13 @@ export const fetchEmailsWithLabel = async (labelName: string): Promise<Email[]> 
 
 export const fetchAttachmentById = async (messageId: string, attachmentId: string): Promise<EmailAttachmentData> => {
   const response = await createApiClient().get(
-    `/api/emails/message/${messageId}/attachment/${encodeURIComponent(attachmentId)}`,
+    `/api/emails/${messageId}/attachment/${encodeURIComponent(attachmentId)}`,
   );
+  return response.data;
+};
+
+export const syncEmail = async (messageId: string): Promise<any> => {
+  const response = await createApiClient().post(`/api/emails/${messageId}/sync`);
   return response.data;
 };
 

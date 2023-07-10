@@ -1,83 +1,55 @@
-import { gmail_v1, google } from 'googleapis';
-import { Email, EmailAttachmentData, GmailLabel, GmailMessageMetadata } from './types';
-const parseMessage = require('gmail-api-parse-message');
+import { google } from 'googleapis';
+import { env } from './env';
+import { GmailLabel, GmailMessage, GmailMessageBody, GmailMessageMetadata } from './types';
 
-export class GmailClient {
-  private static _instance: GmailClient;
-  private _gmail: gmail_v1.Gmail;
+let gmailClient;
 
-  private constructor() {
-    const creds = {
+export const initGmailClient = () => {
+  gmailClient = google.gmail({
+    version: 'v1',
+    auth: google.auth.fromJSON({
       type: 'authorized_user',
-      client_id: process.env.GMAIL_API_CLIENT_ID,
-      client_secret: process.env.GMAIL_API_CLIENT_SECRET,
-      refresh_token: process.env.GMAIL_API_REFRESH_TOKEN,
-    };
+      client_id: env.GMAIL_API_CLIENT_ID,
+      client_secret: env.GMAIL_API_CLIENT_SECRET,
+      refresh_token: env.GMAIL_API_REFRESH_TOKEN,
+    }) as any,
+  });
+};
 
-    const auth = google.auth.fromJSON(creds) as any;
-    this._gmail = google.gmail({ version: 'v1', auth });
+export const fetchAttachmentById = async (messageId: string, attachmentId: string): Promise<GmailMessageBody> => {
+  const res = await gmailClient.users.messages.attachments.get({ userId: 'me', id: attachmentId, messageId });
+  return res.data;
+};
+
+export const fetchEmailById = async (messageId: string): Promise<GmailMessage | null> => {
+  const res = await gmailClient.users.messages.get({ userId: 'me', id: messageId });
+  const message = res.data;
+  if (!message) {
+    console.log(`No messages exist with id [${messageId}]`);
+    return null;
+  } else {
+    return message;
   }
+};
 
-  public static get Instance() {
-    return this._instance || (this._instance = new this());
+export const fetchLabels = async (): Promise<GmailLabel[]> => {
+  const res = await gmailClient.users.labels.list({ userId: 'me' });
+  const labels = res.data.labels;
+  if (!labels || labels.length === 0) {
+    console.log('No labels found.');
+    return [];
+  } else {
+    return labels;
   }
+};
 
-  public fetchAttachmentById = async (messageId: string, attachmentId: string): Promise<EmailAttachmentData> => {
-    const res = await this._gmail.users.messages.attachments.get({ userId: 'me', id: attachmentId, messageId });
-    return {
-      payload: res.data.data.replace(/-/g, '+').replace(/_/g, '/'),
-      size: res.data.size,
-    };
-  };
-
-  public fetchEmailsWithLabel = async (labelName: string): Promise<Email[]> => {
-    // Get the label ID
-    const labels = await this.fetchLabels();
-    const labelId = labels.find(label => label.name === labelName)?.id;
-    if (!labelId) {
-      console.log(`No label found with name [${labelName}]`);
-      return [];
-    }
-
-    // Get all messages for that label
-    const res = await this._gmail.users.messages.list({ userId: 'me', labelIds: [labelId] });
-    const messageMetas: GmailMessageMetadata[] = res.data.messages;
-    if (!messageMetas || messageMetas.length === 0) {
-      console.log(`No messages exist with label [${labelName}]`);
-      return [];
-    }
-
-    // Get all message payloads
-    const emails: Email[] = [];
-    for (let messageMeta of messageMetas) {
-      const email = await this.fetchEmailById(messageMeta.id);
-      if (email) {
-        emails.push(email);
-      }
-    }
-
-    return emails;
-  };
-
-  public fetchEmailById = async (messageId: string): Promise<Email | null> => {
-    const res = await this._gmail.users.messages.get({ userId: 'me', id: messageId });
-    const message = res.data;
-    if (!message) {
-      console.log(`No messages exist with id [${messageId}]`);
-      return null;
-    } else {
-      return parseMessage(message) as Email;
-    }
-  };
-
-  public fetchLabels = async (): Promise<GmailLabel[]> => {
-    const res = await this._gmail.users.labels.list({ userId: 'me' });
-    const labels = res.data.labels;
-    if (!labels || labels.length === 0) {
-      console.log('No labels found.');
-      return [];
-    } else {
-      return labels;
-    }
-  };
-}
+export const fetchEmailsWithLabelId = async (labelId: string): Promise<GmailMessageMetadata[]> => {
+  const res = await gmailClient.users.messages.list({ userId: 'me', labelIds: [labelId] });
+  const messageMetas: GmailMessageMetadata[] = res.data.messages;
+  if (!messageMetas || messageMetas.length === 0) {
+    console.log(`No messages exist with label ID [${labelId}]`);
+    return [];
+  } else {
+    return messageMetas;
+  }
+};
