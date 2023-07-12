@@ -1,7 +1,79 @@
 import { faker } from '@faker-js/faker';
 import textversionjs from 'textversionjs';
-import { GmailMessage, GmailMessageHeader, GmailMessagePart, GmailMessagePayload } from '../types';
-import { encode, getEmbeddedAttachmentIds } from '../utils';
+import TurndownService from 'turndown';
+import {
+  DbPropValue,
+  Email,
+  EmailAttachment,
+  GmailMessage,
+  GmailMessageBody,
+  GmailMessageHeader,
+  GmailMessagePart,
+  GmailMessagePayload,
+  NotionPropertyType,
+} from '../types';
+
+export const createDbPropValue = (propType: NotionPropertyType, propVal?: string): DbPropValue => {
+  return {
+    propType,
+    propName: propType.toString() + '-name',
+    propValue: propVal ?? propType.toString() + '-value',
+  };
+};
+
+export const createGmailAttachment = (encodedData?: string): GmailMessageBody => {
+  return {
+    data: encodedData ?? 'SGVsbG8gV29ybGQh',
+    size: faker.number.int(),
+  };
+};
+
+export const createEmail = (email?: Email): Email => {
+  const html = email?.textHtml ?? createSampleHtml();
+
+  return {
+    id: email?.id ?? faker.string.alphanumeric({ length: 16 }),
+    threadId: email?.threadId ?? faker.string.alphanumeric({ length: 16 }),
+    labelIds: email?.labelIds ?? createGmailLabels(),
+    historyId: email?.historyId ?? faker.string.numeric(8),
+    internalDate: email?.internalDate ?? new Date().getTime(),
+    textHtml: html,
+    textPlain: textify(html),
+    textMarkdown: markdownify(html),
+    snippet: textify(html).replace('\n', '').trim().slice(0, 60),
+    headers: {
+      to: email?.headers?.to ?? `${faker.person.fullName()} <${faker.internet.email()}>`,
+      from: email?.headers?.from ?? `${faker.person.fullName()} <${faker.internet.email()}>`,
+      subject: email?.headers?.subject ?? faker.lorem.sentence(),
+      date: email?.headers?.date ?? new Date().toUTCString(),
+    },
+    attachments: email?.attachments ?? createEmailAttachments(),
+  };
+};
+
+export const createEmailAttachments = (numAttachments: number = 3): EmailAttachment[] => {
+  const attachments: EmailAttachment[] = [];
+  for (let i = 0; i < numAttachments; i++) {
+    const filename = `${i}-${faker.system.fileName()}`;
+    const mimeType = faker.system.mimeType();
+    const cid = `${i}-${faker.string.alphanumeric({ length: 10 })}`;
+
+    attachments.push({
+      attachmentId: `${i}-${faker.string.uuid()}`,
+      filename,
+      headers: {
+        'content-type': `${mimeType}; name="${filename}"`,
+        'content-disposition': `attachment; filename="${filename}"`,
+        'content-transfer-encoding': 'base64',
+        'x-attachment-id': cid,
+        'content-id': `<${cid}>`,
+      },
+      mimeType,
+      size: faker.number.int(),
+    });
+  }
+  return attachments;
+};
 
 export const createGmailMessage = (
   args: {
@@ -255,17 +327,6 @@ export const createSampleHtml = () => {
   return html;
 };
 
-export const textify = (htmlStr: string): string => {
-  return textversionjs(htmlStr, {
-    linkProcess: (href, linkText) => {
-      return `${linkText} <${href}>`;
-    },
-    imgProcess: (src, _) => {
-      return `[image: ${src}]`;
-    },
-  });
-};
-
 export const createH1 = (text?: string): string => {
   return `<h1>${text ?? faker.lorem.sentence()}</h1>`;
 };
@@ -306,7 +367,9 @@ export const createUnorderedList = (items?: string[]): string => {
   if (!items || items.length === 0) {
     items = [faker.word.noun(), faker.word.noun(), faker.word.noun()];
   }
-  return `<ul>${items.reduce((prev, curr) => `${prev}<li>${curr}</li>`, '')}</ul>`;
+  return `<ul>${items.reduce((prev, curr) => {
+    return `${prev}<li>${curr}</li>`;
+  }, '')}</ul>`;
 };
 
 export const createContainer = (contents: string): string => {
@@ -317,4 +380,30 @@ export const createImg = (cid?: string, filename?: string): string => {
   return `<img src="cid:${cid ?? faker.string.alphanumeric({ length: 12 })}" alt="${
     filename ?? faker.system.fileName()
   }" width="128" height="128">`;
+};
+
+export const textify = (htmlStr: string): string => {
+  return textversionjs(htmlStr, {
+    linkProcess: (href, linkText) => {
+      return `${linkText} <${href}>`;
+    },
+    imgProcess: (src, _) => {
+      return `[image: ${src}]`;
+    },
+  });
+};
+
+export const markdownify = (htmlStr: string): string => {
+  const turndownSvc = new TurndownService();
+  return turndownSvc.turndown(htmlStr);
+};
+
+export const getEmbeddedAttachmentIds = (htmlStr: string): string[] => {
+  const matches = htmlStr.match(/cid:[^"]+/gi);
+  return matches?.map(match => match.replace('cid:', '')) ?? [];
+};
+
+export const encode = (str: string): string => {
+  if (!str) return '';
+  return Buffer.from(str.replace(/\s/g, ' '), 'utf-8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_');
 };

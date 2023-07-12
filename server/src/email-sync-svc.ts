@@ -1,9 +1,7 @@
-import textversionjs from 'textversionjs';
-import { env } from './env';
 import { fetchAttachmentById, fetchEmailById, fetchEmailsWithLabelId, fetchLabels } from './gmail-client';
-import { createPageInDatabase, formatPropValues } from './notion-client';
-import { DbPropValue, Email, EmailAttachmentData, NotionPropertyType } from './types';
-import { fixHrefs, parseGmailMessage, parseHtmlEntities } from './utils';
+import { createPageInDatabase, getEmailDatabaseId } from './notion-client';
+import { Email, EmailAttachmentData, NotionPageObject } from './types';
+import { convertEmailToNotionPage, parseGmailMessage } from './utils';
 
 export const fetchEmailsByLabelName = async (labelName: string): Promise<Email[]> => {
   // Get the label ID
@@ -16,10 +14,6 @@ export const fetchEmailsByLabelName = async (labelName: string): Promise<Email[]
 
   // Get all messages for that label
   const messageMetas = await fetchEmailsWithLabelId(labelId);
-  if (!messageMetas || messageMetas.length === 0) {
-    console.log(`No messages exist with label [${labelName}]`);
-    return [];
-  }
 
   // Get all message payloads
   const emails: Email[] = [];
@@ -35,40 +29,17 @@ export const fetchEmailsByLabelName = async (labelName: string): Promise<Email[]
 export const fetchAttachment = async (messageId: string, attachmentId: string): Promise<EmailAttachmentData | null> => {
   if (!messageId || !attachmentId) return null;
   const attachment = await fetchAttachmentById(messageId, attachmentId);
+  if (!attachment) return null;
   return {
     payload: attachment.data.replace(/-/g, '+').replace(/_/g, '/'),
     size: attachment.size,
   };
 };
 
-export const syncEmail = async (messageId: string) => {
+export const syncEmail = async (messageId: string): Promise<NotionPageObject | null> => {
   const gmailMessage = await fetchEmailById(messageId);
+  if (!gmailMessage) return null;
   const email = parseGmailMessage(gmailMessage);
-
-  const propValues: DbPropValue[] = [
-    {
-      propName: 'From',
-      propType: NotionPropertyType.rich_text,
-      propValue: email.headers.from,
-    },
-    {
-      propName: 'To',
-      propType: NotionPropertyType.rich_text,
-      propValue: email.headers.to,
-    },
-    {
-      propName: 'Date',
-      propType: NotionPropertyType.date,
-      propValue: email.headers.date,
-    },
-    {
-      propName: 'Name',
-      propType: NotionPropertyType.title,
-      propValue: email.headers.subject,
-    },
-  ];
-
-  const formattedProps = formatPropValues(propValues);
-  const emailText = parseHtmlEntities(textversionjs(fixHrefs(email.textHtml)));
-  return await createPageInDatabase(env.NOTION_API_EMAILS_DB_ID, formattedProps, emailText);
+  const { content, properties } = convertEmailToNotionPage(email);
+  return await createPageInDatabase(getEmailDatabaseId(), properties, content);
 };

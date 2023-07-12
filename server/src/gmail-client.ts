@@ -16,14 +16,37 @@ export const initGmailClient = () => {
   });
 };
 
-export const fetchAttachmentById = async (messageId: string, attachmentId: string): Promise<GmailMessageBody> => {
-  const res = await gmailClient.users.messages.attachments.get({ userId: 'me', id: attachmentId, messageId });
-  return res.data;
+export const fetchAttachmentById = async (
+  messageId: string,
+  attachmentId: string,
+): Promise<GmailMessageBody | null> => {
+  let attachment: GmailMessageBody | null = null;
+  try {
+    const res = await gmailClient.users.messages.attachments.get({ userId: 'me', id: attachmentId, messageId });
+    attachment = res.data;
+  } catch (e) {
+    console.log(`Failed to fetch attachment with message id [${messageId}] and attachment id [${attachmentId}]!`);
+    console.error(e);
+    return attachment;
+  }
+  if (!attachment) {
+    console.log(`No attachment found with message id [${messageId}] and attachment id [${attachmentId}]!`);
+    return null;
+  }
+
+  return attachment;
 };
 
 export const fetchEmailById = async (messageId: string): Promise<GmailMessage | null> => {
-  const res = await gmailClient.users.messages.get({ userId: 'me', id: messageId });
-  const message = res.data;
+  let message: GmailMessage | null = null;
+  try {
+    const res = await gmailClient.users.messages.get({ userId: 'me', id: messageId });
+    message = res.data;
+  } catch (e) {
+    console.log(`Failed to fetch email with id [${messageId}]!`);
+    console.error(e);
+    return message;
+  }
   if (!message) {
     console.log(`No messages exist with id [${messageId}]`);
     return null;
@@ -33,8 +56,15 @@ export const fetchEmailById = async (messageId: string): Promise<GmailMessage | 
 };
 
 export const fetchLabels = async (): Promise<GmailLabel[]> => {
-  const res = await gmailClient.users.labels.list({ userId: 'me' });
-  const labels = res.data.labels;
+  let labels: GmailLabel[] = [];
+  try {
+    const res = await gmailClient.users.labels.list({ userId: 'me' });
+    labels = res.data.labels;
+  } catch (e) {
+    console.log('Failed to fetch labels!');
+    console.error(e);
+    return labels;
+  }
   if (!labels || labels.length === 0) {
     console.log('No labels found.');
     return [];
@@ -44,8 +74,15 @@ export const fetchLabels = async (): Promise<GmailLabel[]> => {
 };
 
 export const fetchEmailsWithLabelId = async (labelId: string): Promise<GmailMessageMetadata[]> => {
-  const res = await gmailClient.users.messages.list({ userId: 'me', labelIds: [labelId] });
-  const messageMetas: GmailMessageMetadata[] = res.data.messages;
+  let messageMetas: GmailMessageMetadata[] = [];
+  try {
+    const res = await gmailClient.users.messages.list({ userId: 'me', labelIds: [labelId] });
+    messageMetas = res.data.messages;
+  } catch (e) {
+    console.log(`Failed to fetch emails with labelId [${labelId}]!`);
+    console.error(e);
+    return messageMetas;
+  }
   if (!messageMetas || messageMetas.length === 0) {
     console.log(`No messages exist with label ID [${labelId}]`);
     return [];
