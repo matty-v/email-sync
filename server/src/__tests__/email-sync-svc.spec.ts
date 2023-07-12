@@ -10,7 +10,7 @@ import {
   ItemType,
   NotionPropertyType,
 } from '../types';
-import { convertEmailToNotionPage, parseGmailMessage } from '../utils';
+import { parseGmailMessage } from '../utils';
 import { createEmail, createGmailAttachment, createGmailMessage } from './test-utils';
 
 jest.mock('../notion-client');
@@ -26,7 +26,6 @@ let mockFetchEmailById = fetchEmailById as jest.Mock<typeof fetchEmailById>;
 let mockFetchAttachmentById = fetchAttachmentById as jest.Mock<typeof fetchAttachmentById>;
 
 let mockParseGmailMessage = parseGmailMessage as jest.Mock<typeof parseGmailMessage>;
-let mockConvertEmailToNotionPage = convertEmailToNotionPage as jest.Mock<typeof convertEmailToNotionPage>;
 
 const mockEmails = [createEmail(), createEmail(), createEmail()];
 const mockedGmailMessageMetadata: GmailMessageMetadata[] = mockEmails.map(e => ({ id: e.id, threadId: e.threadId }));
@@ -80,10 +79,7 @@ beforeEach(() => {
   mockParseGmailMessage.mockReturnValueOnce(mockEmails[1]);
   mockParseGmailMessage.mockReturnValueOnce(mockEmails[2]);
   mockFetchAttachmentById.mockResolvedValue(mockAttachment);
-  mockConvertEmailToNotionPage.mockReturnValue({
-    content: mockNotionContent,
-    properties: mockNotionProperties,
-  });
+
   mockCreatePageInDatabase.mockResolvedValue({
     id: 'notion-page-id',
     object: ItemType.page,
@@ -230,13 +226,32 @@ describe('Sync Email', () => {
     expect(mockParseGmailMessage).toBeCalledTimes(1);
     expect(mockParseGmailMessage).toBeCalledWith(mockGmailMessages[0]);
 
-    expect(mockConvertEmailToNotionPage).toBeCalledTimes(1);
-    expect(mockConvertEmailToNotionPage).toBeCalledWith(mockEmails[0]);
-
     expect(mockGetEmailDatabaseId).toBeCalledTimes(1);
 
     expect(mockCreatePageInDatabase).toBeCalledTimes(1);
-    expect(mockCreatePageInDatabase).toBeCalledWith(mockEmailsDbId, mockNotionProperties, mockNotionContent);
+    const mockDbPropVals = [
+      {
+        propName: 'From',
+        propType: NotionPropertyType.rich_text,
+        propValue: mockEmails[0].headers.from,
+      },
+      {
+        propName: 'To',
+        propType: NotionPropertyType.rich_text,
+        propValue: mockEmails[0].headers.to,
+      },
+      {
+        propName: 'Date',
+        propType: NotionPropertyType.date,
+        propValue: mockEmails[0].headers.date,
+      },
+      {
+        propName: 'Name',
+        propType: NotionPropertyType.title,
+        propValue: mockEmails[0].headers.subject,
+      },
+    ];
+    expect(mockCreatePageInDatabase).toBeCalledWith(mockEmailsDbId, mockDbPropVals, mockEmails[0].textMarkdown);
   });
 
   test('handles no message found with the given ID', async () => {
@@ -249,7 +264,6 @@ describe('Sync Email', () => {
     expect(mockFetchEmailById).toBeCalledWith(mockGmailMessages[0].id);
 
     expect(mockParseGmailMessage).toBeCalledTimes(0);
-    expect(mockConvertEmailToNotionPage).toBeCalledTimes(0);
     expect(mockGetEmailDatabaseId).toBeCalledTimes(0);
     expect(mockCreatePageInDatabase).toBeCalledTimes(0);
   });

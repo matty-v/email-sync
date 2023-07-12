@@ -1,16 +1,8 @@
 import textversionjs from 'textversionjs';
 import TurndownService from 'turndown';
-import {
-  BlockType,
-  DbPropValue,
-  Email,
-  GmailMessage,
-  NotionParagraphBlock,
-  NotionProperties,
-  NotionPropertyType,
-} from './types';
+import { Email, GmailMessage } from './types';
 
-const turndownSvc = new TurndownService();
+const turndownSvc = new TurndownService({ headingStyle: 'atx' });
 
 export const parseHtmlEntities = (str: string): string => {
   return str.replace(/&#([0-9]{1,3});/gi, (_, numStr) => {
@@ -122,166 +114,13 @@ export const textify = (htmlStr: string): string => {
 };
 
 export const markdownify = (htmlStr: string): string => {
-  return turndownSvc.turndown(htmlStr);
-};
+  let markdown = htmlStr;
 
-export const formatParagraphBlocks = (content: string): NotionParagraphBlock[] | null => {
-  if (!content) return null;
+  markdown = fixHrefs(markdown);
+  markdown = turndownSvc.turndown(markdown);
+  markdown = parseHtmlEntities(markdown);
 
-  const blocks: NotionParagraphBlock[] = [];
-
-  content.split('\n').forEach(line => {
-    if (line.trim()) {
-      blocks.push({
-        object: 'block',
-        type: BlockType.paragraph,
-        paragraph: {
-          rich_text: [
-            {
-              type: 'text',
-              text: {
-                content: line.replace(/[\n\r]/g, ''),
-              },
-            },
-          ],
-        },
-      });
-    }
-  });
-
-  return blocks;
-};
-
-export const formatPropValues = (propValues: DbPropValue[]): NotionProperties => {
-  let propertiesWithValues: any = {};
-
-  propValues.forEach(prop => {
-    switch (prop.propType) {
-      case NotionPropertyType.title:
-        propertiesWithValues[prop.propName] = {
-          title: [
-            {
-              text: {
-                content: prop.propValue,
-              },
-            },
-          ],
-        };
-        break;
-
-      case NotionPropertyType.select:
-        propertiesWithValues[prop.propName] = {
-          select: {
-            name: prop.propValue,
-          },
-        };
-
-        break;
-
-      case NotionPropertyType.multi_select:
-        propertiesWithValues[prop.propName] = {
-          multi_select: prop.propValue.split(',').map(v => {
-            return { name: v };
-          }),
-        };
-
-        break;
-      case NotionPropertyType.rich_text:
-        propertiesWithValues[prop.propName] = {
-          rich_text: [
-            {
-              text: {
-                content: prop.propValue,
-              },
-            },
-          ],
-        };
-
-        break;
-
-      case NotionPropertyType.url:
-        propertiesWithValues[prop.propName] = {
-          url: prop.propValue,
-        };
-
-        break;
-
-      case NotionPropertyType.number:
-        propertiesWithValues[prop.propName] = {
-          number: Number.parseInt(prop.propValue),
-        };
-
-        break;
-
-      case NotionPropertyType.status:
-        propertiesWithValues[prop.propName] = {
-          status: {
-            name: prop.propValue,
-          },
-        };
-
-        break;
-
-      case NotionPropertyType.checkbox:
-        propertiesWithValues[prop.propName] = {
-          checkbox: prop.propValue === 'true' ? true : false,
-        };
-
-        break;
-
-      case NotionPropertyType.date:
-        const newDate = new Date(prop.propValue);
-        const offset = newDate.getTimezoneOffset();
-        const d = new Date(newDate.getTime() - offset * 60 * 1000);
-        const datePropVal = d.toISOString().split('T')[0];
-
-        propertiesWithValues[prop.propName] = {
-          date: {
-            start: datePropVal,
-            end: null,
-            time_zone: null,
-          },
-        };
-
-        break;
-
-      default:
-        break;
-    }
-  });
-
-  return propertiesWithValues;
-};
-
-export const convertEmailToNotionPage = (email: Email): { content: string; properties: NotionProperties } => {
-  const content = parseHtmlEntities(textify(fixHrefs(email.textHtml)));
-  const properties = formatPropValues(createEmailDbPropValues(email));
-  return { content, properties };
-};
-
-const createEmailDbPropValues = (email: Email): DbPropValue[] => {
-  return [
-    {
-      propName: 'From',
-      propType: NotionPropertyType.rich_text,
-      propValue: email.headers.from,
-    },
-    {
-      propName: 'To',
-      propType: NotionPropertyType.rich_text,
-      propValue: email.headers.to,
-    },
-    {
-      propName: 'Date',
-      propType: NotionPropertyType.date,
-      propValue: email.headers.date,
-    },
-    {
-      propName: 'Name',
-      propType: NotionPropertyType.title,
-      propValue: email.headers.subject,
-    },
-  ];
+  return markdown;
 };
 
 const indexHeaders = headers => {
