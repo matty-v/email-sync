@@ -19,6 +19,7 @@ export type EmailAttachment = {
   mimeType: string;
   size: number;
   attachmentId: string;
+  cid?: string;
   headers: {
     [key: string]: string;
   };
@@ -26,19 +27,20 @@ export type EmailAttachment = {
 
 export type Email = {
   id: string;
-  threadId: string;
+  linkToPdf?: string;
+  gmailMeta: {
+    threadId: string;
+    historyId: string;
+    internalDate: number;
+  };
   labelIds: string[];
   snippet: string;
-  historyId: string;
-  internalDate: number;
+  hash: string;
   attachments: EmailAttachment[];
   headers: {
-    subject: string;
-    from: string;
-    to: string;
-    date: string;
+    [key: string]: string;
   };
-  textPlain: string;
+  textPlain?: string;
   textHtml: string;
   textMarkdown: string;
 };

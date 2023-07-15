@@ -3,11 +3,13 @@ import express, { Request, RequestHandler, Response } from 'express';
 import morgan from 'morgan';
 import { env, loadEnv } from './env';
 import { initGmailClient } from './gmail-client';
+import { initGoogleDriveClient } from './google-drive-client';
 import { initNotionClient } from './notion-client';
 import routes from './routes';
 
 loadEnv();
 
+initGoogleDriveClient();
 initGmailClient();
 initNotionClient();
 

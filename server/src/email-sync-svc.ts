@@ -1,7 +1,14 @@
+import { addLinksToMarkdown, createEmailDbPropValues, parseGmailMessage } from './email-utils';
 import { fetchAttachmentById, fetchEmailById, fetchEmailsWithLabelId, fetchLabels } from './gmail-client';
+import {
+  fetchFileLinkById,
+  getAttachmentsFolderId,
+  getMessagesFolderId,
+  uploadFileToFolder,
+} from './google-drive-client';
 import { createPageInDatabase, getEmailDatabaseId } from './notion-client';
-import { DbPropValue, Email, EmailAttachmentData, NotionPageObject, NotionPropertyType } from './types';
-import { parseGmailMessage } from './utils';
+import { AttachmentLink, Email, EmailAttachmentData, NotionPageObject } from './types';
+import { convertHtmlToPdf, replaceMdImgsWithLinks } from './utils';
 
 export const fetchEmailsByLabelName = async (labelName: string): Promise<Email[]> => {
   // Get the label ID
@@ -37,33 +44,58 @@ export const fetchAttachment = async (messageId: string, attachmentId: string): 
 };
 
 export const syncEmail = async (messageId: string): Promise<NotionPageObject | null> => {
+  // Fetch the email by ID
   const gmailMessage = await fetchEmailById(messageId);
   if (!gmailMessage) return null;
-  const email = parseGmailMessage(gmailMessage);
-  return await createPageInDatabase(getEmailDatabaseId(), createEmailDbPropValues(email), email.textMarkdown);
-};
 
-const createEmailDbPropValues = (email: Email): DbPropValue[] => {
-  return [
+  // Parse it into a usable format
+  const email = parseGmailMessage(gmailMessage);
+
+  // Upload a PDF version of the email
+  const pdfData = await convertHtmlToPdf(email.textHtml);
+  const pdfFileId = await uploadFileToFolder(
     {
-      propName: 'From',
-      propType: NotionPropertyType.rich_text,
-      propValue: email.headers.from,
+      dataBuffer: pdfData,
+      filename: `${email.id}-${email.headers.subject}`,
+      mimeType: 'application/pdf',
     },
-    {
-      propName: 'To',
-      propType: NotionPropertyType.rich_text,
-      propValue: email.headers.to,
-    },
-    {
-      propName: 'Date',
-      propType: NotionPropertyType.date,
-      propValue: email.headers.date,
-    },
-    {
-      propName: 'Name',
-      propType: NotionPropertyType.title,
-      propValue: email.headers.subject,
-    },
-  ];
+    getMessagesFolderId(),
+  );
+  const pdfFileUrl = await fetchFileLinkById(pdfFileId);
+  email.linkToPdf = pdfFileUrl;
+
+  // Upload the attachments to google drive
+  const attachmentLinks: AttachmentLink[] = [];
+
+  if (email.attachments && email.attachments.length > 0) {
+    for (let attachment of email.attachments) {
+      const attachmentData = await fetchAttachment(email.id, attachment.attachmentId);
+
+      const fileId = await uploadFileToFolder(
+        {
+          dataBuffer: Buffer.from(attachmentData.payload, 'base64'),
+          filename: `${email.id}-${attachment.filename}`,
+          mimeType: attachment.mimeType,
+        },
+        getAttachmentsFolderId(),
+      );
+
+      const attachmentUrl = await fetchFileLinkById(fileId);
+
+      attachmentLinks.push({
+        filename: attachment.filename,
+        url: attachmentUrl,
+        cid: attachment.headers['x-attachment-id'] ?? '',
+      });
+    }
+  }
+
+  // Add the attachment URLs as links to the email markdown
+  let emailMarkdown = addLinksToMarkdown(attachmentLinks, email.textMarkdown);
+  emailMarkdown = replaceMdImgsWithLinks(emailMarkdown);
+
+  // Create the email page in Notion
+  const emailPage = await createPageInDatabase(getEmailDatabaseId(), createEmailDbPropValues(email), emailMarkdown);
+
+  return emailPage;
 };

@@ -1,8 +1,13 @@
+import { generatePdf } from 'html-pdf-node';
+import { sha256 } from 'js-sha256';
+import { NodeHtmlMarkdown } from 'node-html-markdown';
 import textversionjs from 'textversionjs';
-import TurndownService from 'turndown';
-import { Email, GmailMessage } from './types';
 
-const turndownSvc = new TurndownService({ headingStyle: 'atx' });
+const nhm = new NodeHtmlMarkdown(
+  /* options (optional) */ {},
+  /* customTransformers (optional) */ undefined,
+  /* customCodeBlockTranslators (optional) */ undefined,
+);
 
 export const parseHtmlEntities = (str: string): string => {
   return str.replace(/&#([0-9]{1,3});/gi, (_, numStr) => {
@@ -23,73 +28,6 @@ export const fixHrefs = (str: string): string => {
 export const getEmbeddedAttachmentIds = (htmlStr: string): string[] => {
   const matches = htmlStr.match(/cid:[^"]+/gi);
   return matches?.map(match => match.replace('cid:', '')) ?? [];
-};
-
-export const parseGmailMessage = (gmailMessage: GmailMessage): Email => {
-  var result: any = {
-    id: gmailMessage.id,
-    threadId: gmailMessage.threadId,
-    labelIds: gmailMessage.labelIds,
-    snippet: gmailMessage.snippet,
-    historyId: gmailMessage.historyId,
-  };
-  if (gmailMessage.internalDate) {
-    result.internalDate = parseInt(gmailMessage.internalDate);
-  }
-
-  var payload = gmailMessage.payload;
-  if (!payload) {
-    return result;
-  }
-
-  var headers = indexHeaders(payload.headers);
-  result.headers = headers;
-
-  var parts = [payload];
-  var firstPartProcessed = false;
-
-  while (parts.length !== 0) {
-    var part = parts.shift();
-    if (part.parts) {
-      parts = parts.concat(part.parts);
-    }
-    if (firstPartProcessed) {
-      headers = indexHeaders(part.headers);
-    }
-
-    if (!part.body) {
-      continue;
-    }
-
-    var isHtml = part.mimeType && part.mimeType.indexOf('text/html') !== -1;
-    var isPlain = part.mimeType && part.mimeType.indexOf('text/plain') !== -1;
-    var isAttachment = Boolean(
-      part.body.attachmentId ||
-        (headers['content-disposition'] && headers['content-disposition'].toLowerCase().indexOf('attachment') !== -1),
-    );
-    if (isHtml && !isAttachment) {
-      result.textHtml = decode(part.body.data);
-      result.textMarkdown = markdownify(result.textHtml);
-    } else if (isPlain && !isAttachment) {
-      result.textPlain = decode(part.body.data);
-    } else if (isAttachment) {
-      var body = part.body;
-      if (!result.attachments) {
-        result.attachments = [];
-      }
-      result.attachments.push({
-        filename: part.filename,
-        mimeType: part.mimeType,
-        size: body.size,
-        attachmentId: body.attachmentId,
-        headers: indexHeaders(part.headers),
-      });
-    }
-
-    firstPartProcessed = true;
-  }
-
-  return result;
 };
 
 export const decode = (str: string): string => {
@@ -117,19 +55,57 @@ export const markdownify = (htmlStr: string): string => {
   let markdown = htmlStr;
 
   markdown = fixHrefs(markdown);
-  markdown = turndownSvc.turndown(markdown);
+  markdown = nhm.translate(markdown);
   markdown = parseHtmlEntities(markdown);
 
   return markdown;
 };
 
-const indexHeaders = headers => {
-  if (!headers) {
-    return {};
-  } else {
-    return headers.reduce(function (result, header) {
-      result[header.name.toLowerCase()] = header.value;
-      return result;
-    }, {});
+export const isValidUrl = (url: string): boolean => {
+  let testUrl: URL;
+  try {
+    testUrl = new URL(url);
+  } catch (_) {
+    return null;
   }
+
+  return testUrl.protocol === 'http:' || testUrl.protocol === 'https:';
+};
+
+export const replaceMdImgsWithLinks = (markdown: string): string => {
+  return markdown.replace(/(\!\[.*?\]\(.*?\))/gi, (_, link: string) => {
+    if (link.startsWith('!')) {
+      return link.replace('!', '');
+    } else {
+      return link;
+    }
+  });
+};
+
+export const stripStyleTagsFromHtml = (html: string): string => {
+  return html.replace(/(<style\s.*?<\/style.)/gi, (_, styles: string) => {
+    return '';
+  });
+};
+
+export const shortenString = (str: string, numChars: number): string => {
+  if (str.length < numChars) return str;
+  return `${str.substring(0, numChars - 3)}...`;
+};
+
+export const convertHtmlToPdf = async (html: string): Promise<Buffer | null> => {
+  return new Promise<Buffer | null>((resolve, reject) => {
+    generatePdf({ content: html }, { format: 'A4' }, (e, buffer) => {
+      if (e) {
+        console.error(e);
+        resolve(null);
+      } else {
+        resolve(buffer);
+      }
+    });
+  });
+};
+
+export const createHash = (str: string): string => {
+  return sha256(str);
 };

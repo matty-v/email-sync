@@ -1,16 +1,6 @@
-import { faker } from '@faker-js/faker';
 import { describe, expect, test } from '@jest/globals';
 import { format } from 'prettier';
-import TurndownService from 'turndown';
-import { decode, encode, fixHrefs, markdownify, parseGmailMessage } from '../utils';
-import {
-  createContainer,
-  createGmailMessage,
-  createImg,
-  createLineBreak,
-  createParagraph,
-  createSampleHtml,
-} from './test-utils';
+import { decode, encode, fixHrefs, replaceMdImgsWithLinks, stripStyleTagsFromHtml } from '../utils';
 
 const formatStmt = (str: string, parser?: string) => format(str, { parser: parser ?? 'html' });
 
@@ -27,136 +17,6 @@ describe('Encode/Decode HTML', () => {
     const encodedHtml = encode(testDecodedHtml);
     const reDecodedHtml = decode(encodedHtml);
     expect(formatStmt(reDecodedHtml)).toStrictEqual(formatStmt(testDecodedHtml));
-  });
-});
-
-describe('Parse Gmail Message', () => {
-  test('can parse email metadata successfully', () => {
-    const gmailMessage = createGmailMessage({
-      message: {
-        id: 'id',
-        threadId: 'threadId',
-        labelIds: ['Label_1', 'Label_2'],
-        snippet: 'Test snippet of text',
-        historyId: 'historyId',
-        internalDate: '1688902332920',
-      },
-    });
-
-    const parsedEmail = parseGmailMessage(gmailMessage);
-
-    expect(parsedEmail.id).toBe('id');
-    expect(parsedEmail.threadId).toBe('threadId');
-    expect(parsedEmail.labelIds).toStrictEqual(['Label_1', 'Label_2']);
-    expect(parsedEmail.snippet).toBe('Test snippet of text');
-    expect(parsedEmail.historyId).toBe('historyId');
-    expect(parsedEmail.internalDate).toBe(1688902332920);
-  });
-
-  test('can parse plain text content', () => {
-    const gmailMessage = createGmailMessage({
-      content: 'Simple text content',
-    });
-    const parsedEmail = parseGmailMessage(gmailMessage);
-    expect(parsedEmail.textPlain).toBe('Simple text content');
-  });
-
-  test('can parse html content', () => {
-    const expectedHtml = createSampleHtml();
-    const gmailMessage = createGmailMessage({
-      content: expectedHtml,
-    });
-    const parsedEmail = parseGmailMessage(gmailMessage);
-    expect(formatStmt(parsedEmail.textHtml)).toBe(formatStmt(expectedHtml));
-  });
-
-  test('can produce mardown content', () => {
-    const html = createSampleHtml();
-    const turndownSvc = new TurndownService();
-    const markdown = turndownSvc.turndown(html);
-    const gmailMessage = createGmailMessage({
-      content: html,
-    });
-    const parsedEmail = parseGmailMessage(gmailMessage);
-    expect(formatStmt(parsedEmail.textMarkdown, 'markdown')).toBe(formatStmt(markdown, 'markdown'));
-  });
-
-  test('can parse email headers', () => {
-    const to = faker.internet.email();
-    const from = faker.internet.email();
-    const subject = faker.lorem.sentence();
-    const date = new Date().toUTCString();
-
-    const gmailMessage = createGmailMessage({
-      message: {
-        payload: {
-          headers: [
-            {
-              name: 'To',
-              value: to,
-            },
-            {
-              name: 'From',
-              value: from,
-            },
-            {
-              name: 'Subject',
-              value: subject,
-            },
-            {
-              name: 'Date',
-              value: date,
-            },
-          ],
-        },
-      },
-    });
-
-    const parsedEmail = parseGmailMessage(gmailMessage);
-
-    expect(parsedEmail.headers.to).toBe(to);
-    expect(parsedEmail.headers.from).toBe(from);
-    expect(parsedEmail.headers.subject).toBe(subject);
-    expect(parsedEmail.headers.date).toBe(date);
-  });
-
-  test('can parse embedded and non-embedded attachments', () => {
-    const gmailMessage = createGmailMessage({
-      content: `${createContainer(
-        createParagraph('Content with an embedded and non-embedded attachments') +
-          createLineBreak() +
-          createImg('contentid123', 'embedded.png'),
-      )}`,
-      attachmentFilenames: ['attach1.png', 'hello.txt'],
-    });
-
-    const parsedEmail = parseGmailMessage(gmailMessage);
-
-    expect(parsedEmail.attachments.length).toBe(3);
-
-    let attachment = parsedEmail.attachments[0];
-    expect(attachment).toBeDefined();
-    expect(attachment.filename).toBe('attach1.png');
-    expect(attachment.attachmentId).toBeDefined();
-    expect(attachment.mimeType).toBeDefined();
-    expect(attachment.headers['content-id']).toBeDefined();
-    expect(attachment.headers['x-attachment-id']).toBeDefined();
-
-    attachment = parsedEmail.attachments[1];
-    expect(attachment).toBeDefined();
-    expect(attachment.filename).toBe('hello.txt');
-    expect(attachment.attachmentId).toBeDefined();
-    expect(attachment.mimeType).toBeDefined();
-    expect(attachment.headers['content-id']).toBeDefined();
-    expect(attachment.headers['x-attachment-id']).toBeDefined();
-
-    attachment = parsedEmail.attachments[2];
-    expect(attachment).toBeDefined();
-    expect(attachment.filename).toBeDefined();
-    expect(attachment.attachmentId).toBeDefined();
-    expect(attachment.mimeType).toBeDefined();
-    expect(attachment.headers['content-id']).toBe('<contentid123>');
-    expect(attachment.headers['x-attachment-id']).toBe('contentid123');
   });
 });
 
@@ -184,10 +44,37 @@ describe('Clean up HTML entities', () => {
   test('can replace html entities in text', () => {});
 });
 
+describe('Replace images with links in markdown', () => {
+  test('removes any image style links', () => {
+    const markdown = 'This is some ![embedded.png](https://some.url) embedded image ![link](http://some.other.url)';
+
+    const editedMarkdown = replaceMdImgsWithLinks(markdown);
+
+    expect(editedMarkdown).toBe(
+      'This is some [embedded.png](https://some.url) embedded image [link](http://some.other.url)',
+    );
+  });
+
+  test('leaves non-image links undisturbed', () => {
+    const markdown = 'This is some [embedded.png](https://some.url) link, [hello](http://some.other.url)';
+
+    const editedMarkdown = replaceMdImgsWithLinks(markdown);
+
+    expect(editedMarkdown).toBe('This is some [embedded.png](https://some.url) link, [hello](http://some.other.url)');
+  });
+});
+
+describe('Removes Style Tags From HTML', () => {
+  test('removes the style tags and leaves everything else', () => {
+    const html = 'hello<style type="text/css">.blockTitle {font-family: sans-serif;font-size:12px;}</style> goodbye';
+    const editedHtml = stripStyleTagsFromHtml(html);
+    expect(editedHtml).toBe('hello goodbye');
+  });
+});
+
 describe('Markdownify', () => {
   test('can convert html to markdown', () => {
-    const html = createSampleHtml();
-
-    console.log(markdownify(html));
+    // const html = createSampleHtml();
+    // console.log(markdownify(html));
   });
 });

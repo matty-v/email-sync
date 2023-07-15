@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { convertMarkdownToBlocks, formatPropValues } from '../notion-client';
+import { convertMarkdownToBlocks, formatLinkSegment, formatPropValues } from '../notion-client';
 import { BlockType, NotionParagraphBlock, NotionPropertyType } from '../types';
 import { createDbPropValue } from './test-utils';
 
@@ -124,6 +124,59 @@ describe('Format Prop Values', () => {
 });
 
 describe('Converts markdown to blocks', () => {
+  test('convert markdown', () => {
+    const markdown = `Some *text* and [sail however happily](https://impractical-fat.com) more [alongside apud hm](https://jumpy-wall.name)`;
+
+    const expectedBlocks: NotionParagraphBlock[] = [
+      {
+        object: 'block',
+        type: BlockType.paragraph,
+        paragraph: {
+          rich_text: [
+            {
+              type: 'text',
+              text: {
+                content: 'Some *text* and ',
+              },
+            },
+            {
+              type: 'text',
+              text: {
+                content: 'sail however happily',
+                link: {
+                  url: 'https://impractical-fat.com',
+                },
+              },
+              plain_text: 'sail however happily',
+              href: 'https://impractical-fat.com',
+            },
+            {
+              type: 'text',
+              text: {
+                content: ' more ',
+              },
+            },
+            {
+              type: 'text',
+              text: {
+                content: 'alongside apud hm',
+                link: {
+                  url: 'https://jumpy-wall.name',
+                },
+              },
+              plain_text: 'alongside apud hm',
+              href: 'https://jumpy-wall.name',
+            },
+          ],
+        },
+      },
+    ];
+
+    const blocks = convertMarkdownToBlocks(markdown);
+
+    expect(blocks).toStrictEqual(expectedBlocks);
+  });
+
   test('handles no content', () => {
     const actualBlock = convertMarkdownToBlocks('');
     expect(actualBlock).toBe(null);
@@ -190,6 +243,23 @@ describe('Converts markdown to blocks', () => {
   test('handles italics', () => {});
   test('handles headers', () => {});
   test('handles paragraphs', () => {});
-  test('handles links', () => {});
+  test('format link segments', () => {
+    const linkText = '[Link Text](https://this.is.a.link)';
+    const expectedLinkSegment = {
+      type: 'text',
+      text: {
+        content: 'Link Text',
+        link: {
+          url: 'https://this.is.a.link',
+        },
+      },
+      plain_text: 'Link Text',
+      href: 'https://this.is.a.link',
+    };
+
+    const linkSegment = formatLinkSegment(linkText);
+
+    expect(linkSegment).toStrictEqual(expectedLinkSegment);
+  });
   test('handles images', () => {});
 });

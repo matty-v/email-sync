@@ -189,15 +189,28 @@ export type NotionBlock = {
 
 export type NotionParagraphBlock = NotionBlock & {
   paragraph: {
-    rich_text: [
-      {
-        type: 'text';
-        text: {
-          content: string;
-        };
-      },
-    ];
+    rich_text: NotionRichTextSegment[];
   };
+};
+
+export type NotionRichTextSegment = {
+  type: 'text';
+  text: {
+    content: string;
+    link?: {
+      url: string;
+    };
+  };
+  annotations?: {
+    bold?: boolean;
+    italic?: boolean;
+    strikethrough?: boolean;
+    underline?: boolean;
+    code?: boolean;
+    color?: string;
+  };
+  plain_text?: string;
+  href?: string;
 };
 
 export enum BlockType {
@@ -211,6 +224,17 @@ export type DbPropValue = {
 };
 
 // My API Types ===================================
+export type AttachmentLink = {
+  filename: string;
+  url: string;
+  cid: string;
+};
+
+export type GoogleDriveFile = {
+  dataBuffer: Buffer;
+  filename: string;
+  mimeType: string;
+};
 
 export type EmailAttachmentData = {
   size: number;
@@ -222,6 +246,7 @@ export type EmailAttachment = {
   mimeType: string;
   size: number;
   attachmentId: string;
+  cid?: string;
   headers: {
     [key: string]: string;
   };
@@ -229,19 +254,20 @@ export type EmailAttachment = {
 
 export type Email = {
   id: string;
-  threadId: string;
+  linkToPdf?: string;
+  gmailMeta: {
+    threadId: string;
+    historyId: string;
+    internalDate: number;
+  };
   labelIds: string[];
   snippet: string;
-  historyId: string;
-  internalDate: number;
+  hash: string;
   attachments: EmailAttachment[];
   headers: {
-    subject: string;
-    from: string;
-    to: string;
-    date: string;
+    [key: string]: string;
   };
-  textPlain: string;
+  textPlain?: string;
   textHtml: string;
   textMarkdown: string;
 };

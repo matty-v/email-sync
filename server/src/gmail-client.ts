@@ -1,16 +1,16 @@
-import { google } from 'googleapis';
+import { gmail_v1, google } from 'googleapis';
 import { env } from './env';
 import { GmailLabel, GmailMessage, GmailMessageBody, GmailMessageMetadata } from './types';
 
-let gmailClient;
+let gmailClient: gmail_v1.Gmail;
 
 export const initGmailClient = () => {
   gmailClient = google.gmail({
     version: 'v1',
     auth: google.auth.fromJSON({
       type: 'authorized_user',
-      client_id: env.GMAIL_API_CLIENT_ID,
-      client_secret: env.GMAIL_API_CLIENT_SECRET,
+      client_id: env.GOOGLE_CLIENT_ID,
+      client_secret: env.GOOGLE_CLIENT_SECRET,
       refresh_token: env.GMAIL_API_REFRESH_TOKEN,
     }) as any,
   });

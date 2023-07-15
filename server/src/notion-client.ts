@@ -7,7 +7,9 @@ import {
   NotionParagraphBlock,
   NotionProperties,
   NotionPropertyType,
+  NotionRichTextSegment,
 } from './types';
+import { isValidUrl, shortenString } from './utils';
 
 const notionApiUrl = 'https://api.notion.com/v1/';
 const notionVersion = '2022-06-28';
@@ -52,9 +54,17 @@ export const createNewPage = async (
     ...(content && content),
   };
 
-  const response = await notionClient.post('pages', requestBody);
+  let createdPage: NotionPageObject;
+  try {
+    const response = await notionClient.post('pages', requestBody);
+    createdPage = response.data;
+  } catch (e) {
+    console.log('Failed to create a new page with request body:');
+    console.log(JSON.stringify(requestBody, null, 2));
+    console.error(e);
+  }
 
-  return response.data;
+  return createdPage;
 };
 
 export const formatPropValues = (propValues: DbPropValue[]): NotionProperties => {
@@ -165,18 +175,50 @@ export const convertMarkdownToBlocks = (markdownContent: string): NotionParagrap
 
   markdownContent.split('\n').forEach(line => {
     if (line.trim()) {
+      const segments: NotionRichTextSegment[] = [];
+      const specialSegments: { key: number; segment: NotionRichTextSegment }[] = [];
+      let counter = 0;
+
+      for (let rule of markdownConverterRules) {
+        const matches = line.match(rule.regex);
+        if (matches && matches.length > 0) {
+          for (let match of matches) {
+            counter++;
+            const segment = rule.formatter(match);
+            if (segment) {
+              specialSegments.push({
+                key: counter,
+                segment,
+              });
+              line = line.replace(match, `$((${counter}))`);
+            }
+          }
+        }
+      }
+
+      while (line.length > 0) {
+        const textMatches = line.match(/^(.*?)\$\(\(/);
+        if (textMatches && textMatches.length > 0 && textMatches[1]) {
+          segments.push(formatTextSegment(textMatches[1]));
+          line = line.replace(textMatches[1], '');
+        } else {
+          const specialSegmentMatches = line.match(/\$\(\((.*?)\)\)/);
+          if (specialSegmentMatches && specialSegmentMatches.length > 0 && specialSegmentMatches[1]) {
+            const key = parseInt(specialSegmentMatches[1]);
+            segments.push(specialSegments.find(s => s.key === key).segment);
+            line = line.replace(/\$\(\(.*?\)\)/, '');
+          } else {
+            segments.push(formatTextSegment(line));
+            break;
+          }
+        }
+      }
+
       blocks.push({
         object: 'block',
         type: BlockType.paragraph,
         paragraph: {
-          rich_text: [
-            {
-              type: 'text',
-              text: {
-                content: line.replace(/[\n\r]/g, ''),
-              },
-            },
-          ],
+          rich_text: segments,
         },
       });
     }
@@ -184,3 +226,45 @@ export const convertMarkdownToBlocks = (markdownContent: string): NotionParagrap
 
   return blocks;
 };
+
+export const formatTextSegment = (text: string): NotionRichTextSegment => {
+  return {
+    type: 'text',
+    text: {
+      content: shortenString(text, 2000),
+    },
+  };
+};
+
+export const formatLinkSegment = (text: string): NotionRichTextSegment | null => {
+  const matches = text.match(/\[(.+)\]\((.+)\)/);
+
+  if (!matches || matches.length < 3 || !matches[1] || !matches[2]) {
+    return null;
+  }
+
+  let linkText = matches[1];
+  let linkUrl = matches[2];
+
+  if (!isValidUrl(linkUrl)) return null;
+
+  return {
+    type: 'text',
+    text: {
+      content: linkText,
+      link: {
+        url: linkUrl,
+      },
+    },
+    plain_text: linkText,
+    href: linkUrl,
+  };
+};
+
+const markdownConverterRules = [
+  {
+    key: 'link',
+    regex: /\[([^\[\]]*)\]\((.*?)\)/g,
+    formatter: formatLinkSegment,
+  },
+];
