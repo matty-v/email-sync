@@ -1,10 +1,16 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { fetchAttachment, fetchEmailsByLabelName, syncEmail } from '../email-sync-svc';
-import { addLinksToMarkdown, parseGmailMessage } from '../email-utils';
+import { addLinksToMarkdown, createEmailDbPropValues, parseGmailMessage } from '../email-utils';
 import { fetchAttachmentById, fetchEmailById, fetchEmailsWithLabelId, fetchLabels } from '../gmail-client';
-import { fetchFileLinkById, getAttachmentsFolderId, uploadFileToFolder } from '../google-drive-client';
+import {
+  fetchFileLinkById,
+  getAttachmentsFolderId,
+  getMessagesFolderId,
+  uploadFileToFolder,
+} from '../google-drive-client';
 import { createPageInDatabase, getEmailDatabaseId } from '../notion-client';
 import {
+  DbPropValue,
   GmailLabel,
   GmailMessage,
   GmailMessageBody,
@@ -12,7 +18,7 @@ import {
   ItemType,
   NotionPropertyType,
 } from '../types';
-import { replaceMdImgsWithLinks } from '../utils';
+import { convertHtmlToPdf, replaceMdImgsWithLinks } from '../utils';
 import { createEmail, createGmailAttachment, createGmailMessage } from './test-utils';
 
 jest.mock('../google-drive-client');
@@ -24,6 +30,7 @@ jest.mock('../utils');
 let mockUploadFileToFolder = uploadFileToFolder as jest.Mock<typeof uploadFileToFolder>;
 let mockGetAttachmentsFolderId = getAttachmentsFolderId as jest.Mock<typeof getAttachmentsFolderId>;
 let mockFetchFileLinkById = fetchFileLinkById as jest.Mock<typeof fetchFileLinkById>;
+let mockGetMessagesFolderId = getMessagesFolderId as jest.Mock<typeof getMessagesFolderId>;
 
 let mockCreatePageInDatabase = createPageInDatabase as jest.Mock<typeof createPageInDatabase>;
 let mockGetEmailDatabaseId = getEmailDatabaseId as jest.Mock<typeof getEmailDatabaseId>;
@@ -35,8 +42,10 @@ let mockFetchAttachmentById = fetchAttachmentById as jest.Mock<typeof fetchAttac
 
 let mockParseGmailMessage = parseGmailMessage as jest.Mock<typeof parseGmailMessage>;
 let mockAddLinksToMarkdown = addLinksToMarkdown as jest.Mock<typeof addLinksToMarkdown>;
+let mockCreateEmailDbPropValues = createEmailDbPropValues as jest.Mock<typeof createEmailDbPropValues>;
 
 let mockReplaceMdImgsWithLinks = replaceMdImgsWithLinks as jest.Mock<typeof replaceMdImgsWithLinks>;
+let mockConvertHtmlToPdf = convertHtmlToPdf as jest.Mock<typeof convertHtmlToPdf>;
 
 const mockEmails = [createEmail(), createEmail(), createEmail()];
 const mockedGmailMessageMetadata: GmailMessageMetadata[] = mockEmails.map(e => ({
@@ -72,6 +81,7 @@ const mockedGmailLabels: GmailLabel[] = [
   },
 ];
 const mockAttachmentData: string = 'SGVsbG8gV29ybGQh';
+const mockAttachmentBuffer: Buffer = Buffer.from(mockAttachmentData, 'base64');
 const mockAttachment: GmailMessageBody = createGmailAttachment(mockAttachmentData);
 
 const mockNotionContent = 'Hello world!';
@@ -83,6 +93,7 @@ const mockNotionProperties = {
 };
 const mockEmailsDbId = 'test-email-db-id';
 const mockAttachmentsFolderId = 'attachments-folder-id';
+const mockMessagesFolderId = 'messages-folder-id';
 const mockAttachmentFiles = [
   { id: 'file-id-1', filename: 'filename-1.png', url: 'http://example.com/file-id-1' },
   { id: 'file-id-1', filename: 'filename-2.png', url: 'http://example.com/file-id-2' },
@@ -92,6 +103,16 @@ const mockMarkdownWithAddedLinks =
   mockEmails[0].textMarkdown + '\n[link 1](https://example.com/1)\n[link 2](https://example.com/2)';
 
 const mockMarkdownWithImageLinksRemoved = mockMarkdownWithAddedLinks + ' now with image links removed';
+const mockPdfBuffer = Buffer.from('abc123');
+const mockMessagePdfFileId = 'message-pdf-file-id';
+const mockMessagePdfUrl = 'https://this/is/to/a/pdf.file';
+const mockEmailDbPropVals: DbPropValue[] = [
+  {
+    propName: 'Test DB Prop',
+    propValue: 'test db value',
+    propType: NotionPropertyType.rich_text,
+  },
+];
 
 beforeEach(() => {
   mockFetchLabels.mockResolvedValue(mockedGmailLabels);
@@ -116,16 +137,21 @@ beforeEach(() => {
   mockGetEmailDatabaseId.mockReturnValue(mockEmailsDbId);
 
   mockGetAttachmentsFolderId.mockReturnValue(mockAttachmentsFolderId);
+  mockUploadFileToFolder.mockResolvedValueOnce(mockMessagePdfFileId);
   mockUploadFileToFolder.mockResolvedValueOnce(mockAttachmentFiles[0].id);
   mockUploadFileToFolder.mockResolvedValueOnce(mockAttachmentFiles[1].id);
   mockUploadFileToFolder.mockResolvedValueOnce(mockAttachmentFiles[2].id);
 
+  mockFetchFileLinkById.mockResolvedValueOnce(mockMessagePdfUrl);
   mockFetchFileLinkById.mockResolvedValueOnce(mockAttachmentFiles[0].url);
   mockFetchFileLinkById.mockResolvedValueOnce(mockAttachmentFiles[1].url);
   mockFetchFileLinkById.mockResolvedValueOnce(mockAttachmentFiles[2].url);
 
   mockAddLinksToMarkdown.mockReturnValue(mockMarkdownWithAddedLinks);
   mockReplaceMdImgsWithLinks.mockReturnValue(mockMarkdownWithImageLinksRemoved);
+  mockConvertHtmlToPdf.mockResolvedValue(mockPdfBuffer);
+  mockGetMessagesFolderId.mockReturnValue(mockMessagesFolderId);
+  mockCreateEmailDbPropValues.mockReturnValue(mockEmailDbPropVals);
 });
 
 afterEach(() => {
@@ -262,6 +288,11 @@ describe('Sync Email', () => {
     expect(mockParseGmailMessage).toBeCalledTimes(1);
     expect(mockParseGmailMessage).toBeCalledWith(mockGmailMessages[0]);
 
+    expect(mockConvertHtmlToPdf).toBeCalledTimes(1);
+    expect(mockConvertHtmlToPdf).toBeCalledWith(mockEmails[0].textHtml);
+
+    expect(mockGetMessagesFolderId).toBeCalledTimes(1);
+
     expect(mockFetchAttachmentById).toBeCalledTimes(3);
     expect(mockFetchAttachmentById.mock.calls).toEqual([
       [mockEmails[0].id, mockEmails[0].attachments[0].attachmentId],
@@ -271,11 +302,22 @@ describe('Sync Email', () => {
 
     expect(mockGetAttachmentsFolderId).toBeCalledTimes(3);
 
-    expect(mockUploadFileToFolder).toBeCalledTimes(3);
+    expect(mockCreateEmailDbPropValues).toBeCalledTimes(1);
+    expect(mockCreateEmailDbPropValues).toBeCalledWith(mockEmails[0]);
+
+    expect(mockUploadFileToFolder).toBeCalledTimes(4);
     expect(mockUploadFileToFolder.mock.calls).toEqual([
       [
         {
-          base64Data: mockAttachmentData,
+          dataBuffer: mockPdfBuffer,
+          filename: `${mockEmails[0].id}-${mockEmails[0].headers['subject']}`,
+          mimeType: 'application/pdf',
+        },
+        mockMessagesFolderId,
+      ],
+      [
+        {
+          dataBuffer: mockAttachmentBuffer,
           filename: `${mockEmails[0].id}-${mockEmails[0].attachments[0].filename}`,
           mimeType: mockEmails[0].attachments[0].mimeType,
         },
@@ -283,7 +325,7 @@ describe('Sync Email', () => {
       ],
       [
         {
-          base64Data: mockAttachmentData,
+          dataBuffer: mockAttachmentBuffer,
           filename: `${mockEmails[0].id}-${mockEmails[0].attachments[1].filename}`,
           mimeType: mockEmails[0].attachments[1].mimeType,
         },
@@ -291,7 +333,7 @@ describe('Sync Email', () => {
       ],
       [
         {
-          base64Data: mockAttachmentData,
+          dataBuffer: mockAttachmentBuffer,
           filename: `${mockEmails[0].id}-${mockEmails[0].attachments[2].filename}`,
           mimeType: mockEmails[0].attachments[2].mimeType,
         },
@@ -299,8 +341,9 @@ describe('Sync Email', () => {
       ],
     ]);
 
-    expect(mockFetchFileLinkById).toBeCalledTimes(3);
+    expect(mockFetchFileLinkById).toBeCalledTimes(4);
     expect(mockFetchFileLinkById.mock.calls).toEqual([
+      [mockMessagePdfFileId],
       [mockAttachmentFiles[0].id],
       [mockAttachmentFiles[1].id],
       [mockAttachmentFiles[2].id],
@@ -322,29 +365,11 @@ describe('Sync Email', () => {
     expect(mockGetEmailDatabaseId).toBeCalledTimes(1);
 
     expect(mockCreatePageInDatabase).toBeCalledTimes(1);
-    const mockDbPropVals = [
-      {
-        propName: 'From',
-        propType: NotionPropertyType.rich_text,
-        propValue: mockEmails[0].headers.from,
-      },
-      {
-        propName: 'To',
-        propType: NotionPropertyType.rich_text,
-        propValue: mockEmails[0].headers.to,
-      },
-      {
-        propName: 'Date',
-        propType: NotionPropertyType.date,
-        propValue: mockEmails[0].headers.date,
-      },
-      {
-        propName: 'Name',
-        propType: NotionPropertyType.title,
-        propValue: mockEmails[0].headers.subject,
-      },
-    ];
-    expect(mockCreatePageInDatabase).toBeCalledWith(mockEmailsDbId, mockDbPropVals, mockMarkdownWithImageLinksRemoved);
+    expect(mockCreatePageInDatabase).toBeCalledWith(
+      mockEmailsDbId,
+      mockEmailDbPropVals,
+      mockMarkdownWithImageLinksRemoved,
+    );
   });
 
   test('handles no message found with the given ID', async () => {
@@ -360,4 +385,8 @@ describe('Sync Email', () => {
     expect(mockGetEmailDatabaseId).toBeCalledTimes(0);
     expect(mockCreatePageInDatabase).toBeCalledTimes(0);
   });
+});
+
+describe('Sync all Emails with a Label', () => {
+  test('syncs non-duplicate emails', () => {});
 });

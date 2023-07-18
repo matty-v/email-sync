@@ -1,10 +1,11 @@
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import { env } from './env';
 import {
   BlockType,
   DbPropValue,
   NotionPageObject,
   NotionParagraphBlock,
+  NotionProp,
   NotionProperties,
   NotionPropertyType,
   NotionRichTextSegment,
@@ -14,7 +15,7 @@ import { isValidUrl, shortenString } from './utils';
 const notionApiUrl = 'https://api.notion.com/v1/';
 const notionVersion = '2022-06-28';
 
-let notionClient;
+let notionClient: AxiosInstance;
 
 export const initNotionClient = () => {
   notionClient = axios.create({
@@ -259,6 +260,62 @@ export const formatLinkSegment = (text: string): NotionRichTextSegment | null =>
     plain_text: linkText,
     href: linkUrl,
   };
+};
+
+export const fetchPagesInDatabase = async (
+  databaseId: string,
+  existingPages: NotionPageObject[] = [],
+  start_cursor: string = '',
+): Promise<NotionPageObject[]> => {
+  let pages: NotionPageObject[] = existingPages;
+
+  try {
+    const response = await notionClient.post(`databases/${databaseId}/query`, {
+      ...(start_cursor && { start_cursor }),
+    });
+    pages.push(...response.data.results);
+
+    if (response.data['has_more']) {
+      console.log('fetching more results...');
+      await fetchPagesInDatabase(databaseId, existingPages, response.data['next_cursor']);
+    }
+  } catch (e) {
+    console.log(`Failed to fetch pages for database with ID [${databaseId}]`);
+    console.error(e);
+  }
+
+  return pages;
+};
+
+export const getPropValueFromPage = (
+  page: NotionPageObject,
+  propType: NotionPropertyType,
+  propName: string,
+): string => {
+  let propValue = '';
+
+  const prop: NotionProp = page.properties[propName];
+  if (!prop) {
+    console.error(`No ${propName} property found in page object`);
+    console.error(JSON.stringify(page, null, 2));
+    return propValue;
+  }
+
+  try {
+    switch (propType) {
+      case NotionPropertyType.rich_text:
+        propValue = prop.rich_text[0].plain_text;
+        break;
+
+      default:
+        break;
+    }
+  } catch (e) {
+    console.error(e);
+    return propValue;
+  }
+
+  return propValue;
 };
 
 const markdownConverterRules = [

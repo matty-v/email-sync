@@ -1,6 +1,7 @@
-import { generatePdf } from 'html-pdf-node';
+import Handlebars from 'handlebars';
 import { sha256 } from 'js-sha256';
 import { NodeHtmlMarkdown } from 'node-html-markdown';
+import puppeteer from 'puppeteer';
 import textversionjs from 'textversionjs';
 
 const nhm = new NodeHtmlMarkdown(
@@ -94,18 +95,48 @@ export const shortenString = (str: string, numChars: number): string => {
 };
 
 export const convertHtmlToPdf = async (html: string): Promise<Buffer | null> => {
-  return new Promise<Buffer | null>((resolve, reject) => {
-    generatePdf({ content: html }, { format: 'A4' }, (e, buffer) => {
-      if (e) {
-        console.error(e);
-        resolve(null);
-      } else {
-        resolve(buffer);
-      }
-    });
-  });
+  return await generatePdf(html);
+  // return new Promise<Buffer | null>((resolve, reject) => {
+  //   generatePdf({ content: html }, { format: 'A4' }, (e, buffer) => {
+  //     if (e) {
+  //       console.error(e);
+  //       resolve(null);
+  //     } else {
+  //       resolve(buffer);
+  //     }
+  //   });
+  // });
 };
 
 export const createHash = (str: string): string => {
   return sha256(str);
+};
+
+const generatePdf = async (html: string): Promise<Buffer | null> => {
+  const browser = await puppeteer.launch({
+    headless: 'new',
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
+  const page = await browser.newPage();
+
+  //const data = await inlineCss(html, { url: '/' });
+
+  const template = Handlebars.compile(html, { strict: true });
+  const result = template(html);
+
+  await page.setContent(result, {
+    waitUntil: 'networkidle0',
+  });
+
+  let pdfData: Buffer = null;
+  try {
+    const d = await page.pdf();
+    pdfData = Buffer.from(Object.values(d));
+  } catch (e) {
+    console.error(e);
+  } finally {
+    await browser.close();
+  }
+
+  return pdfData;
 };

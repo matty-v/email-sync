@@ -6,8 +6,8 @@ import {
   getMessagesFolderId,
   uploadFileToFolder,
 } from './google-drive-client';
-import { createPageInDatabase, getEmailDatabaseId } from './notion-client';
-import { AttachmentLink, Email, EmailAttachmentData, NotionPageObject } from './types';
+import { createPageInDatabase, fetchPagesInDatabase, getEmailDatabaseId, getPropValueFromPage } from './notion-client';
+import { AttachmentLink, Email, EmailAttachmentData, NotionPageObject, NotionPropertyType } from './types';
 import { convertHtmlToPdf, replaceMdImgsWithLinks } from './utils';
 
 export const fetchEmailsByLabelName = async (labelName: string): Promise<Email[]> => {
@@ -85,7 +85,7 @@ export const syncEmail = async (messageId: string): Promise<NotionPageObject | n
       attachmentLinks.push({
         filename: attachment.filename,
         url: attachmentUrl,
-        cid: attachment.headers['x-attachment-id'] ?? '',
+        cid: attachment.cid,
       });
     }
   }
@@ -98,4 +98,28 @@ export const syncEmail = async (messageId: string): Promise<NotionPageObject | n
   const emailPage = await createPageInDatabase(getEmailDatabaseId(), createEmailDbPropValues(email), emailMarkdown);
 
   return emailPage;
+};
+
+export const syncEmailsWithLabel = async (labelName: string): Promise<void> => {
+  const existingEmailPages = await fetchPagesInDatabase(getEmailDatabaseId());
+
+  const existingEmailIds = existingEmailPages.map(page =>
+    getPropValueFromPage(page, NotionPropertyType.rich_text, 'Message ID'),
+  );
+
+  const emailsWithLabel = await fetchEmailsByLabelName(labelName);
+
+  const emailsToSync = emailsWithLabel.filter(e => !existingEmailIds.find(id => id === e.id));
+
+  let syncCount = 0;
+  for (let email of emailsToSync) {
+    console.log(`-> Syncing email: [${email.headers['subject']}]...`);
+    const emailPage = await syncEmail(email.id);
+    syncCount = emailPage ? syncCount + 1 : syncCount;
+    console.log('-> Complete!');
+  }
+
+  console.log(`Successfully added ${syncCount} emails`);
+
+  return;
 };

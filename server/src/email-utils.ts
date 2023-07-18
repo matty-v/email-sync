@@ -76,12 +76,16 @@ export const parseGmailMessage = (gmailMessage: GmailMessage): Email => {
       if (!email.attachments) {
         email.attachments = [];
       }
+
+      const attachmentHeaders = createHeaders(part.headers);
+
       email.attachments.push({
         filename: part.filename,
         mimeType: part.mimeType,
         size: body.size,
         attachmentId: body.attachmentId,
-        headers: createHeaders(part.headers),
+        headers: attachmentHeaders,
+        cid: attachmentHeaders['x-attachment-id'] ?? '',
       });
     }
 

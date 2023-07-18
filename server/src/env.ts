@@ -12,6 +12,7 @@ export const schema = {
   NOTION_API_EMAILS_DB_ID: String,
   DRIVE_EMAIL_MESSAGES_FOLDER_ID: String,
   DRIVE_EMAIL_ATTACHMENTS_FOLDER_ID: String,
+  GMAIL_SYNC_LABEL: String,
 };
 
 export let env: Env;

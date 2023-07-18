@@ -1,11 +1,16 @@
 {
-  "name": "email-sync-server",
+  "name": "email-sync-service",
   "version": "1.0.0",
-  "description": "The email sync server",
+  "description": "A service that syncs emails from Gmail to Notion",
+  "main": "dist/function.js",
   "scripts": {
     "build": "tsc -p .",
-    "dev": "nodemon ./src/server.ts",
-    "test": "jest"
+    "test": "jest",
+    "start-dev": "ts-node -e \"import('./src/function').then(module => module.runEmailSync(null, null))\"",
+    "start-server": "nodemon ./src/server.ts",
+    "start-cloud-function-dev": "npm run build && npx @google-cloud/functions-framework --target=runEmailSync",
+    "gcp-build": "node node_modules/puppeteer/install.js",
+    "deploy-cloud-function": "./deploy-cloud-function.sh"
   },
   "keywords": [],
   "author": "",
@@ -16,11 +21,12 @@
     "dotenv": "^16.3.1",
     "express": "^4.17.1",
     "googleapis": "^120.0.0",
-    "html-pdf-node": "^1.0.8",
+    "handlebars": "^4.7.7",
     "js-sha256": "^0.9.0",
     "morgan": "^1.10.0",
     "node-fetch": "^2.6.6",
     "node-html-markdown": "^1.3.0",
+    "puppeteer": "^20.8.2",
     "textversionjs": "^1.1.3",
     "ts-dotenv": "^0.9.1"
   },
@@ -28,6 +34,7 @@
     "@babel/preset-env": "^7.22.7",
     "@babel/preset-typescript": "^7.22.5",
     "@faker-js/faker": "^8.0.2",
+    "@google-cloud/functions-framework": "^3.3.0",
     "@jest/globals": "^29.6.1",
     "@types/cors": "^2.8.12",
     "@types/express": "^4.17.13",

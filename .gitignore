@@ -9,6 +9,7 @@
 /server/dist
 /app/.env
 /server/.env
+/server/.cache
 
 # debug
 /app/npm-debug.log*

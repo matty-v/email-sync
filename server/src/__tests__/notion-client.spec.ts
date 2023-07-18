@@ -123,6 +123,10 @@ describe('Format Prop Values', () => {
   });
 });
 
+describe('Get Property Value from Page', () => {
+  test('gets a rich_text property value', () => {});
+});
+
 describe('Converts markdown to blocks', () => {
   test('convert markdown', () => {
     const markdown = `Some *text* and [sail however happily](https://impractical-fat.com) more [alongside apud hm](https://jumpy-wall.name)`;

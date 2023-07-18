@@ -138,6 +138,7 @@ export type NotionProp = {
   id: string;
   type: NotionPropertyType;
   name?: string;
+  rich_text?: NotionRichTextSegment[];
 };
 
 export type NotionStatusProp = NotionProp & {
