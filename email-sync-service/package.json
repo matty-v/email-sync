@@ -5,7 +5,7 @@
   "main": "dist/function.js",
   "scripts": {
     "build": "tsc -p .",
-    "test": "jest",
+    "test": "jest --silent",
     "start-dev": "ts-node -e \"import('./src/function').then(module => module.runEmailSync(null, null))\"",
     "start-server": "nodemon ./src/server.ts",
     "start-cloud-function-dev": "npm run build && npx @google-cloud/functions-framework --target=runEmailSync",

@@ -2,15 +2,15 @@
 
 # dependencies
 /app/node_modules
-/server/node_modules
+/email-sync-service/node_modules
 
 # production
 /app/dist
-/server/dist
+/email-sync-service/dist
 /app/.env
-/server/.env
-/server/.cache
+/email-sync-service/.env
+/email-sync-service/.cache
 
 # debug
 /app/npm-debug.log*
-/server/npm-debug.log*
+/email-sync-service/npm-debug.log*

@@ -1,7 +1,7 @@
 import { drive_v3, google } from 'googleapis';
 import { Readable } from 'node:stream';
-import { env } from './env';
-import { GoogleDriveFile } from './types';
+import { env } from '../env';
+import { GoogleDriveFile } from '../types';
 
 let driveClient: drive_v3.Drive;
 
@@ -15,14 +15,6 @@ export const initGoogleDriveClient = () => {
       refresh_token: env.DRIVE_API_REFRESH_TOKEN,
     }) as any,
   });
-};
-
-export const getAttachmentsFolderId = () => {
-  return env.DRIVE_EMAIL_ATTACHMENTS_FOLDER_ID;
-};
-
-export const getMessagesFolderId = () => {
-  return env.DRIVE_EMAIL_MESSAGES_FOLDER_ID;
 };
 
 export const uploadFileToFolder = async (driveFile: GoogleDriveFile, folderId: string): Promise<string> => {

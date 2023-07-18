@@ -1,7 +1,7 @@
 import { faker } from '@faker-js/faker';
 import { describe, expect, test } from '@jest/globals';
-import { addLinksToMarkdown, parseGmailMessage } from '../email-utils';
 import { AttachmentLink } from '../types';
+import { addLinksToMarkdown, parseGmailMessage } from '../utils/email-utils';
 import {
   createContainer,
   createGmailMessage,
@@ -11,7 +11,7 @@ import {
   createSampleHtml,
   formatStmt,
   markdownify,
-} from './test-utils';
+} from './helper';
 
 describe('Parse Gmail Message', () => {
   test('can parse email metadata successfully', () => {
@@ -27,8 +27,6 @@ describe('Parse Gmail Message', () => {
     });
 
     const parsedEmail = parseGmailMessage(gmailMessage);
-
-    console.log(JSON.stringify(parsedEmail, null, 2));
 
     expect(parsedEmail.id).toBe('id');
     expect(parsedEmail.gmailMeta.threadId).toBe('threadId');

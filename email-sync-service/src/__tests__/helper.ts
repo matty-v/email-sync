@@ -66,7 +66,7 @@ export const createGmailMessage = (
     content?: string;
     attachmentFilenames?: string[];
     message?: GmailMessage;
-  } = { content: null, attachmentFilenames: null, message: null },
+  } = { content: '', attachmentFilenames: [], message: {} },
 ): GmailMessage => {
   const { content, attachmentFilenames, message } = args;
 
@@ -75,7 +75,7 @@ export const createGmailMessage = (
     htmlContent = createSampleHtml();
   }
 
-  const attachments = [];
+  const attachments: any = [];
   if (attachmentFilenames) {
     attachments.push(
       ...attachmentFilenames.map(filename => ({ filename, cid: faker.string.alphanumeric({ length: 12 }) })),
@@ -90,7 +90,12 @@ export const createGmailMessage = (
     internalDate: message?.internalDate ?? new Date().getTime().toString(),
     sizeEstimate: message?.sizeEstimate ?? faker.number.int(),
     payload: createMessagePayload(htmlContent, attachments, message?.payload),
-    snippet: message?.snippet ?? textify(htmlContent).replace('\n', '').trim().slice(0, 60),
+    snippet:
+      message?.snippet ??
+      textify(htmlContent ?? '')
+        .replace('\n', '')
+        .trim()
+        .slice(0, 60),
   };
 };
 
@@ -123,6 +128,7 @@ const createEmailAttachments = (numAttachments: number = 3): EmailAttachment[] =
       },
       mimeType,
       size: faker.number.int(),
+      cid,
     });
   }
   return attachments;
@@ -139,7 +145,7 @@ const createMessagePayload = (
     partId: payload?.partId ?? '',
     body: payload?.body ?? { size: faker.number.int() },
     headers: createMessagePayloadHeaders(payload?.headers),
-    parts: createMessagePayloadParts(htmlContent, attachments),
+    parts: createMessagePayloadParts(htmlContent ?? '', attachments),
   };
 };
 

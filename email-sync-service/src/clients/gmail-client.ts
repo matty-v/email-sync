@@ -1,6 +1,6 @@
 import { gmail_v1, google } from 'googleapis';
-import { env } from './env';
-import { GmailLabel, GmailMessage, GmailMessageBody, GmailMessageMetadata } from './types';
+import { env } from '../env';
+import { GmailLabel, GmailMessage, GmailMessageBody, GmailMessageMetadata } from '../types';
 
 let gmailClient: gmail_v1.Gmail;
 

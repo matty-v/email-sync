@@ -1,10 +1,10 @@
 import cors from 'cors';
 import express, { Request, RequestHandler, Response } from 'express';
 import morgan from 'morgan';
-import { env, loadEnv } from './env';
-import { initGmailClient } from './gmail-client';
-import { initGoogleDriveClient } from './google-drive-client';
-import { initNotionClient } from './notion-client';
+import { initGmailClient } from '../clients/gmail-client';
+import { initGoogleDriveClient } from '../clients/google-drive-client';
+import { initNotionClient } from '../clients/notion-client';
+import { env, loadEnv } from '../env';
 import routes from './routes';
 
 loadEnv();

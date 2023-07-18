@@ -1,14 +1,17 @@
-import { addLinksToMarkdown, createEmailDbPropValues, parseGmailMessage } from './email-utils';
-import { fetchAttachmentById, fetchEmailById, fetchEmailsWithLabelId, fetchLabels } from './gmail-client';
-import {
-  fetchFileLinkById,
-  getAttachmentsFolderId,
-  getMessagesFolderId,
-  uploadFileToFolder,
-} from './google-drive-client';
-import { createPageInDatabase, fetchPagesInDatabase, getEmailDatabaseId, getPropValueFromPage } from './notion-client';
+import { fetchAttachmentById, fetchEmailById, fetchEmailsWithLabelId, fetchLabels } from './clients/gmail-client';
+import { fetchFileLinkById, uploadFileToFolder } from './clients/google-drive-client';
+import { createPageInDatabase, fetchPagesInDatabase } from './clients/notion-client';
 import { AttachmentLink, Email, EmailAttachmentData, NotionPageObject, NotionPropertyType } from './types';
-import { convertHtmlToPdf, replaceMdImgsWithLinks } from './utils';
+import {
+  addLinksToMarkdown,
+  createEmailDbPropValues,
+  getAttachmentsFolderId,
+  getEmailDatabaseId,
+  getMessagesFolderId,
+  parseGmailMessage,
+} from './utils/email-utils';
+import { getPropValueFromPage } from './utils/notion-utils';
+import { convertHtmlToPdf, replaceMdImgsWithLinks } from './utils/utils';
 
 export const fetchEmailsByLabelName = async (labelName: string): Promise<Email[]> => {
   // Get the label ID

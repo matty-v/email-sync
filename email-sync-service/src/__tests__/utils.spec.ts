@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { format } from 'prettier';
-import { decode, encode, fixHrefs, replaceMdImgsWithLinks, stripStyleTagsFromHtml } from '../utils';
+import { decode, encode, fixHrefs, replaceMdImgsWithLinks, stripStyleTagsFromHtml } from '../utils/utils';
 
 const formatStmt = (str: string, parser?: string) => format(str, { parser: parser ?? 'html' });
 

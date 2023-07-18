@@ -1,6 +1,6 @@
 import { Request, RequestHandler, Response, Router } from 'express';
+import { fetchAttachment, fetchEmailsByLabelName, syncEmail } from '../email-sync-svc';
 import authFilter from './auth-filter';
-import { fetchAttachment, fetchEmailsByLabelName, syncEmail } from './email-sync-svc';
 
 /**
  * /api/emails

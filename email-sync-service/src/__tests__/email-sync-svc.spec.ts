@@ -1,14 +1,8 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { fetchAttachmentById, fetchEmailById, fetchEmailsWithLabelId, fetchLabels } from '../clients/gmail-client';
+import { fetchFileLinkById, uploadFileToFolder } from '../clients/google-drive-client';
+import { createPageInDatabase } from '../clients/notion-client';
 import { fetchAttachment, fetchEmailsByLabelName, syncEmail } from '../email-sync-svc';
-import { addLinksToMarkdown, createEmailDbPropValues, parseGmailMessage } from '../email-utils';
-import { fetchAttachmentById, fetchEmailById, fetchEmailsWithLabelId, fetchLabels } from '../gmail-client';
-import {
-  fetchFileLinkById,
-  getAttachmentsFolderId,
-  getMessagesFolderId,
-  uploadFileToFolder,
-} from '../google-drive-client';
-import { createPageInDatabase, getEmailDatabaseId } from '../notion-client';
 import {
   DbPropValue,
   GmailLabel,
@@ -18,14 +12,22 @@ import {
   ItemType,
   NotionPropertyType,
 } from '../types';
-import { convertHtmlToPdf, replaceMdImgsWithLinks } from '../utils';
-import { createEmail, createGmailAttachment, createGmailMessage } from './test-utils';
+import {
+  addLinksToMarkdown,
+  createEmailDbPropValues,
+  getAttachmentsFolderId,
+  getEmailDatabaseId,
+  getMessagesFolderId,
+  parseGmailMessage,
+} from '../utils/email-utils';
+import { convertHtmlToPdf, replaceMdImgsWithLinks } from '../utils/utils';
+import { createEmail, createGmailAttachment, createGmailMessage } from './helper';
 
-jest.mock('../google-drive-client');
-jest.mock('../notion-client');
-jest.mock('../gmail-client');
-jest.mock('../email-utils');
-jest.mock('../utils');
+jest.mock('../clients/google-drive-client');
+jest.mock('../clients/notion-client');
+jest.mock('../clients/gmail-client');
+jest.mock('../utils/email-utils');
+jest.mock('../utils/utils');
 
 let mockUploadFileToFolder = uploadFileToFolder as jest.Mock<typeof uploadFileToFolder>;
 let mockGetAttachmentsFolderId = getAttachmentsFolderId as jest.Mock<typeof getAttachmentsFolderId>;
@@ -161,7 +163,7 @@ afterEach(() => {
 
 describe('Get emails by label', () => {
   test('will fetch emails with a label', async () => {
-    const emails = await fetchEmailsByLabelName(mockedGmailLabels[0].name);
+    const emails = await fetchEmailsByLabelName(mockedGmailLabels[0].name ?? '');
 
     expect(mockFetchLabels).toBeCalledTimes(1);
 
@@ -201,7 +203,7 @@ describe('Get emails by label', () => {
   test('handles the case with no messages for a label', async () => {
     mockFetchEmailsWithLabelId.mockResolvedValue([]);
 
-    const emails = await fetchEmailsByLabelName(mockedGmailLabels[0].name);
+    const emails = await fetchEmailsByLabelName(mockedGmailLabels[0].name ?? '');
     expect(emails.length).toBe(0);
 
     expect(mockFetchLabels).toBeCalledTimes(1);
@@ -219,7 +221,7 @@ describe('Get emails by label', () => {
     mockFetchEmailById.mockResolvedValueOnce(null);
     mockFetchEmailById.mockResolvedValueOnce(mockGmailMessages[2]);
 
-    const emails = await fetchEmailsByLabelName(mockedGmailLabels[0].name);
+    const emails = await fetchEmailsByLabelName(mockedGmailLabels[0].name ?? '');
     expect(emails.length).toBe(1);
 
     expect(mockFetchLabels).toBeCalledTimes(1);
@@ -280,7 +282,7 @@ describe('Sync Email', () => {
     mockParseGmailMessage.mockReset();
     mockParseGmailMessage.mockReturnValue(mockEmails[0]);
 
-    await syncEmail(mockGmailMessages[0].id);
+    await syncEmail(mockGmailMessages[0].id ?? '');
 
     expect(mockFetchEmailById).toBeCalledTimes(1);
     expect(mockFetchEmailById).toBeCalledWith(mockGmailMessages[0].id);
@@ -376,7 +378,7 @@ describe('Sync Email', () => {
     mockFetchEmailById.mockReset();
     mockFetchEmailById.mockResolvedValue(null);
 
-    await syncEmail(mockGmailMessages[0].id);
+    await syncEmail(mockGmailMessages[0].id ?? '');
 
     expect(mockFetchEmailById).toBeCalledTimes(1);
     expect(mockFetchEmailById).toBeCalledWith(mockGmailMessages[0].id);

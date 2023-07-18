@@ -1,8 +1,8 @@
+import { initGmailClient } from './clients/gmail-client';
+import { initGoogleDriveClient } from './clients/google-drive-client';
+import { initNotionClient } from './clients/notion-client';
 import { syncEmailsWithLabel } from './email-sync-svc';
 import { env, loadEnv } from './env';
-import { initGmailClient } from './gmail-client';
-import { initGoogleDriveClient } from './google-drive-client';
-import { initNotionClient } from './notion-client';
 
 export const runEmailSync = async (req, res) => {
   loadEnv();

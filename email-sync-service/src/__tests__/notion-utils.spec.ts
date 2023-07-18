@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import { convertMarkdownToBlocks, formatLinkSegment, formatPropValues } from '../notion-client';
 import { BlockType, NotionParagraphBlock, NotionPropertyType } from '../types';
-import { createDbPropValue } from './test-utils';
+import { convertMarkdownToBlocks, formatLinkSegment, formatPropValues } from '../utils/notion-utils';
+import { createDbPropValue } from './helper';
 
 describe('Format Prop Values', () => {
   test('formats title property', () => {

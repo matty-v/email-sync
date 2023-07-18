@@ -4,12 +4,6 @@ import { NodeHtmlMarkdown } from 'node-html-markdown';
 import puppeteer from 'puppeteer';
 import textversionjs from 'textversionjs';
 
-const nhm = new NodeHtmlMarkdown(
-  /* options (optional) */ {},
-  /* customTransformers (optional) */ undefined,
-  /* customCodeBlockTranslators (optional) */ undefined,
-);
-
 export const parseHtmlEntities = (str: string): string => {
   return str.replace(/&#([0-9]{1,3});/gi, (_, numStr) => {
     return String.fromCharCode(parseInt(numStr, 10));
@@ -53,10 +47,12 @@ export const textify = (htmlStr: string): string => {
 };
 
 export const markdownify = (htmlStr: string): string => {
+  const converter = new NodeHtmlMarkdown();
+
   let markdown = htmlStr;
 
   markdown = fixHrefs(markdown);
-  markdown = nhm.translate(markdown);
+  markdown = converter.translate(markdown);
   markdown = parseHtmlEntities(markdown);
 
   return markdown;
@@ -94,32 +90,16 @@ export const shortenString = (str: string, numChars: number): string => {
   return `${str.substring(0, numChars - 3)}...`;
 };
 
-export const convertHtmlToPdf = async (html: string): Promise<Buffer | null> => {
-  return await generatePdf(html);
-  // return new Promise<Buffer | null>((resolve, reject) => {
-  //   generatePdf({ content: html }, { format: 'A4' }, (e, buffer) => {
-  //     if (e) {
-  //       console.error(e);
-  //       resolve(null);
-  //     } else {
-  //       resolve(buffer);
-  //     }
-  //   });
-  // });
-};
-
 export const createHash = (str: string): string => {
   return sha256(str);
 };
 
-const generatePdf = async (html: string): Promise<Buffer | null> => {
+export const convertHtmlToPdf = async (html: string): Promise<Buffer | null> => {
   const browser = await puppeteer.launch({
     headless: 'new',
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
   const page = await browser.newPage();
-
-  //const data = await inlineCss(html, { url: '/' });
 
   const template = Handlebars.compile(html, { strict: true });
   const result = template(html);

@@ -1,5 +1,18 @@
-import { AttachmentLink, DbPropValue, Email, GmailMessage, GmailMessageHeader, NotionPropertyType } from './types';
+import { env } from '../env';
+import { AttachmentLink, DbPropValue, Email, GmailMessage, GmailMessageHeader, NotionPropertyType } from '../types';
 import { createHash, decode, markdownify, stripStyleTagsFromHtml } from './utils';
+
+export const getEmailDatabaseId = (): string => {
+  return env.NOTION_API_EMAILS_DB_ID;
+};
+
+export const getAttachmentsFolderId = () => {
+  return env.DRIVE_EMAIL_ATTACHMENTS_FOLDER_ID;
+};
+
+export const getMessagesFolderId = () => {
+  return env.DRIVE_EMAIL_MESSAGES_FOLDER_ID;
+};
 
 export const parseGmailMessage = (gmailMessage: GmailMessage): Email => {
   let email: Email = {
@@ -36,6 +49,17 @@ export const parseGmailMessage = (gmailMessage: GmailMessage): Email => {
     return email;
   }
 
+  const createHeaders = (headers: GmailMessageHeader[]): { [key: string]: string } => {
+    if (!headers) {
+      return {};
+    } else {
+      return headers.reduce(function (result, header) {
+        result[header.name.toLowerCase()] = header.value;
+        return result;
+      }, {});
+    }
+  };
+
   email.headers = createHeaders(payload.headers);
 
   let parts = [payload];
@@ -55,9 +79,9 @@ export const parseGmailMessage = (gmailMessage: GmailMessage): Email => {
       continue;
     }
 
-    var isHtml = part.mimeType && part.mimeType.indexOf('text/html') !== -1;
-    var isPlain = part.mimeType && part.mimeType.indexOf('text/plain') !== -1;
-    var isAttachment = Boolean(
+    const isHtml = part.mimeType && part.mimeType.indexOf('text/html') !== -1;
+    const isPlain = part.mimeType && part.mimeType.indexOf('text/plain') !== -1;
+    const isAttachment = Boolean(
       part.body.attachmentId ||
         (headers &&
           headers['content-disposition'] &&
@@ -155,15 +179,4 @@ export const createEmailDbPropValues = (email: Email): DbPropValue[] => {
       propValue: email.hash,
     },
   ];
-};
-
-const createHeaders = (headers: GmailMessageHeader[]): { [key: string]: string } => {
-  if (!headers) {
-    return {};
-  } else {
-    return headers.reduce(function (result, header) {
-      result[header.name.toLowerCase()] = header.value;
-      return result;
-    }, {});
-  }
 };
