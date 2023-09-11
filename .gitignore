@@ -8,7 +8,7 @@
 /app/dist
 /email-sync-service/dist
 /app/.env
-/email-sync-service/.env
+/email-sync-service/.env*
 /email-sync-service/.cache
 
 # debug
