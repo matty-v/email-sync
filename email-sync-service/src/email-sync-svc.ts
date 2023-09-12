@@ -93,7 +93,7 @@ export const syncEmail = async (messageId: string): Promise<NotionPageObject | n
     }
   }
 
-  // Add the attachment URLs as links to the email markdown
+  // Add attachment URLs as links to the email markdown
   let emailMarkdown = addLinksToMarkdown(attachmentLinks, email.textMarkdown);
   emailMarkdown = replaceMdImgsWithLinks(emailMarkdown);
 
