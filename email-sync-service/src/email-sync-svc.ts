@@ -97,7 +97,7 @@ export const syncEmail = async (messageId: string): Promise<NotionPageObject | n
   let emailMarkdown = addLinksToMarkdown(attachmentLinks, email.textMarkdown);
   emailMarkdown = replaceMdImgsWithLinks(emailMarkdown);
 
-  // Create the email page in Notion
+  // Create the email in Notion
   const emailPage = await createPageInDatabase(getEmailDatabaseId(), createEmailDbPropValues(email), emailMarkdown);
 
   return emailPage;
