@@ -14,7 +14,7 @@ import { getPropValueFromPage } from './utils/notion-utils';
 import { convertHtmlToPdf, replaceMdImgsWithLinks } from './utils/utils';
 
 export const fetchEmailsByLabelName = async (labelName: string): Promise<Email[]> => {
-  // Get the label ID
+  // Get the label ID from the name
   const labels = await fetchLabels();
   const labelId = labels.find(label => label.name === labelName)?.id;
   if (!labelId) {
